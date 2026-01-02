@@ -1,0 +1,17 @@
+# 网易云音乐评论桌面应用 - 依赖清单
+# Music Comment Desktop App - Requirements
+
+# GUI框架
+PyQt6==6.10.1
+
+# HTTP请求
+requests==2.32.5
+
+# 加密算法（用于评论接口）
+pycryptodome==3.23.0
+
+# Windows API（用于窗口标题读取）
+pywin32==311
+
+# 系统进程信息（用于窗口检测）
+psutil==7.2.1
