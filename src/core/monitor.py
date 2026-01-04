@@ -80,12 +80,12 @@ class NeteaseWindowMonitor:
 
                 # 检查是否是主窗口类名
                 if class_name == self.WINDOW_CLASS_NAME:
-                    logger.info(f"找到匹配的窗口类名: {class_name} (hwnd={hwnd})")
+                    logger.debug(f"找到匹配的窗口类名: {class_name} (hwnd={hwnd})")
 
                     # 获取窗口标题
                     try:
                         title = win32gui.GetWindowText(hwnd)
-                        logger.info(f"窗口标题: {title}")
+                        logger.debug(f"窗口标题: {title}")
                     except Exception as e:
                         logger.debug(f"获取窗口标题失败 (hwnd={hwnd}): {e}")
                         return True
@@ -93,14 +93,14 @@ class NeteaseWindowMonitor:
                     # 检查窗口是否可见
                     try:
                         is_visible = win32gui.IsWindowVisible(hwnd)
-                        logger.info(f"窗口可见: {is_visible}")
+                        logger.debug(f"窗口可见: {is_visible}")
                     except Exception as e:
                         logger.debug(f"检查窗口可见性失败 (hwnd={hwnd}): {e}")
                         return True
 
                     # 检查标题是否有效
                     if not title or not is_visible:
-                        logger.info(f"窗口被跳过: title={bool(title)}, visible={is_visible}")
+                        logger.debug(f"窗口被跳过: title={bool(title)}, visible={is_visible}")
                         return True
 
                     # 获取进程ID（可选）
@@ -111,7 +111,7 @@ class NeteaseWindowMonitor:
                         pid = 0
 
                     # 找到目标窗口
-                    logger.info(f"成功匹配网易云音乐窗口: {title}")
+                    logger.debug(f"成功匹配网易云音乐窗口: {title}")
                     window_info = WindowInfo(
                         hwnd=hwnd,
                         title=title,
@@ -131,9 +131,9 @@ class NeteaseWindowMonitor:
         windows: list[WindowInfo] = []
 
         try:
-            logger.info("开始枚举所有窗口，查找网易云音乐...")
+            logger.debug("开始枚举所有窗口，查找网易云音乐...")
             win32gui.EnumWindows(callback, windows)
-            logger.info(f"枚举完成，找到 {len(windows)} 个网易云音乐窗口")
+            logger.debug(f"枚举完成，找到 {len(windows)} 个网易云音乐窗口")
         except PermissionError as e:
             # 即使 EnumWindows 返回时抛出权限错误，如果已经找到窗口，也继续使用
             if windows:
@@ -155,11 +155,11 @@ class NeteaseWindowMonitor:
                 return None
 
         if windows:
-            logger.info(f"找到网易云音乐主窗口: {windows[0].title}")
+            logger.debug(f"找到网易云音乐主窗口: {windows[0].title}")
             return windows[0]
 
-        logger.warning("未找到网易云音乐主窗口（目标类名: OrpheusBrowserHost）")
-        logger.info("调试提示：请确保网易云音乐正在运行且窗口可见")
+        logger.debug("未找到网易云音乐主窗口（目标类名: OrpheusBrowserHost）")
+        logger.debug("调试提示：请确保网易云音乐正在运行且窗口可见")
         return None
 
     def parse_window_title(self, title: str) -> Optional[Tuple[str, str]]:

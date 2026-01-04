@@ -73,8 +73,17 @@ class TransparentWindow(QWidget):
         # 背景透明（支持半透明效果）
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        # 窗口大小
+        # 窗口大小（初始大小）
         self.resize(self.config.window_width, self.config.window_height)
+
+        # 设置窗口尺寸策略：宽度固定，高度根据内容调整
+        from PyQt6.QtWidgets import QSizePolicy
+        size_policy = QSizePolicy(
+            QSizePolicy.Policy.Fixed,      # 宽度固定
+            QSizePolicy.Policy.Preferred   # 高度根据内容
+        )
+        self.setSizePolicy(size_policy)
+        self.background_container = None  # 先初始化，后面会在 _setup_ui 中创建
 
         # 设置鼠标跟踪，以便拖动
         self.setMouseTracking(True)
@@ -90,6 +99,10 @@ class TransparentWindow(QWidget):
         # 创建半透明背景容器（使用自定义绘制）
         self.background_container = BackgroundContainer(self)
 
+        # 设置容器尺寸：宽度固定，高度根据内容调整
+        self.background_container.setMinimumWidth(self.config.window_width)
+        self.background_container.setMaximumWidth(self.config.window_width)
+
         # 容器布局
         container_layout = QVBoxLayout()
         container_layout.setContentsMargins(0, 0, 0, 0)
@@ -97,12 +110,20 @@ class TransparentWindow(QWidget):
 
         # 创建评论展示组件
         self.comment_widget = CommentWidget(self.background_container)
+        # 连接评论更新信号到窗口高度调整槽
+        self.comment_widget.comment_updated.connect(self._adjust_window_height)
         container_layout.addWidget(self.comment_widget)
 
         self.background_container.setLayout(container_layout)
         layout.addWidget(self.background_container)
 
         self.setLayout(layout)
+
+        # 设置主窗口的宽度约束，高度允许动态调整
+        self.setMinimumWidth(self.config.window_width)
+        self.setMaximumWidth(self.config.window_width)
+        self.setMinimumHeight(100)  # 最小高度
+        # 不设置最大高度，允许根据内容动态调整
 
         # 让所有子组件的鼠标事件传递给父窗口
         self.comment_widget.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
@@ -272,3 +293,21 @@ class TransparentWindow(QWidget):
             comments: 评论列表
         """
         self.comment_widget.update_song(song_info, comments)
+
+        # 更新后调整窗口高度以适应内容
+        self._adjust_window_height()
+
+    def _adjust_window_height(self) -> None:
+        """根据内容调整窗口高度"""
+        # 强制布局更新
+        self.background_container.layout().activate()
+        self.comment_widget.layout().activate()
+
+        # 获取内容需要的实际高度
+        content_height = self.background_container.sizeHint().height()
+
+        # 确保高度在合理范围内（最小100，最大600）
+        new_height = max(100, min(content_height, 600))
+
+        # 调整窗口大小
+        self.resize(self.config.window_width, new_height)

@@ -7,7 +7,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QFrame
 )
-from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, pyqtSignal
 from PyQt6.QtGui import QCursor, QFont
 
 from src.config.settings import get_config
@@ -23,6 +23,9 @@ class CommentWidget(QWidget):
 
     显示歌曲信息和评论轮播，支持淡入淡出动画
     """
+
+    # 定义信号：评论更新时发出，用于通知主窗口调整高度
+    comment_updated = pyqtSignal()
 
     def __init__(self, parent: QWidget = None):
         """初始化评论展示组件
@@ -88,6 +91,7 @@ class CommentWidget(QWidget):
         """)
         self.comment_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.comment_label.setWordWrap(True)
+        # 不设置最大高度，允许根据内容动态调整
         layout.addWidget(self.comment_label)
 
         # 添加弹性空间，把用户名和点赞数推到底部
@@ -157,7 +161,7 @@ class CommentWidget(QWidget):
         # 启动轮播
         self._start_rotation()
 
-        logger.info(
+        logger.debug(
             f"更新歌曲: {song.name} - {song.artist}, "
             f"评论数: {len(comments)}"
         )
@@ -177,6 +181,8 @@ class CommentWidget(QWidget):
             self.meta_label.setText("")
             if hasattr(self, 'likes_label'):
                 self.likes_label.setText("")
+            # 发出信号，通知窗口调整高度
+            self.comment_updated.emit()
             return
 
         comment = self.comments[self.current_index]
@@ -189,6 +195,9 @@ class CommentWidget(QWidget):
 
         if hasattr(self, 'likes_label'):
             self.likes_label.setText("")  # 不再单独显示点赞数
+
+        # 发出信号，通知窗口调整高度
+        self.comment_updated.emit()
 
     def _start_rotation(self) -> None:
         """开始评论轮播"""

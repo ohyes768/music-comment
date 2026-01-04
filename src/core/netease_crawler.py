@@ -122,7 +122,7 @@ class NeteaseMusicCrawler:
             "limit": "5"
         }
 
-        logger.info(f"搜索歌曲: {keywords}")
+        logger.debug(f"搜索歌曲: {keywords}")
         response = self._safe_request(url, params)
 
         if not response or response.get("code") != 200:
@@ -136,7 +136,7 @@ class NeteaseMusicCrawler:
 
         # 返回第一个结果的ID
         song_id = str(songs[0]["id"])
-        logger.info(f"找到歌曲ID: {song_id}")
+        logger.debug(f"找到歌曲ID: {song_id}")
         return song_id
 
     @lru_cache(maxsize=50)
@@ -272,7 +272,7 @@ class NeteaseMusicCrawler:
                 )
                 comments.append(comment)
 
-            logger.info(f"成功获取 {len(comments)} 条热门评论")
+            logger.debug(f"成功获取 {len(comments)} 条热门评论")
             return comments
 
         except Exception as e:
