@@ -62,11 +62,10 @@ class TransparentWindow(QWidget):
 
     def _setup_window(self) -> None:
         """配置窗口属性"""
-        # 窗口标志 - 添加最小化按钮支持
+        # 窗口标志 - 去掉 Tool 属性，让窗口能在任务栏显示
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |      # 无边框
             Qt.WindowType.WindowStaysOnTopHint |     # 置顶
-            Qt.WindowType.Tool |                    # 工具窗口
             Qt.WindowType.WindowMinimizeButtonHint  # 显示最小化按钮
         )
 
