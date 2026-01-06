@@ -47,6 +47,7 @@ class CommentWidget(QWidget):
         # UI组件
         self.song_label: QLabel = None
         self.comment_label: QLabel = None
+        self.counter_label: QLabel = None
         self.meta_label: QLabel = None
         self.likes_label: QLabel = None
 
@@ -97,13 +98,27 @@ class CommentWidget(QWidget):
         # 添加弹性空间，把用户名和点赞数推到底部
         layout.addStretch()
 
-        # 互动区：用户名和点赞（右下角）
+        # 互动区：计数器和用户名（底部）
         from PyQt6.QtWidgets import QHBoxLayout
         h_layout = QHBoxLayout()
         h_layout.setContentsMargins(0, 0, 0, 0)
         h_layout.setSpacing(0)
 
-        # 添加弹簧，推内容到右边
+        # 计数器标签：12px，白色，左下角
+        self.counter_label = QLabel()
+        self.counter_label.setStyleSheet("""
+            QLabel {
+                color: #FFFFFF;
+                font-size: 12px;
+                font-weight: 400;
+                background-color: transparent;
+                padding: 0px;
+            }
+        """)
+        self.counter_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        h_layout.addWidget(self.counter_label)
+
+        # 添加弹簧，推用户名到右边
         h_layout.addStretch()
 
         # 用户名：12px，白色（改为白色，缩小字体）
@@ -178,6 +193,7 @@ class CommentWidget(QWidget):
         """更新评论显示"""
         if not self.comments or self.current_index >= len(self.comments):
             self.comment_label.setText("暂无评论")
+            self.counter_label.setText("0/0")
             self.meta_label.setText("")
             if hasattr(self, 'likes_label'):
                 self.likes_label.setText("")
@@ -189,6 +205,9 @@ class CommentWidget(QWidget):
 
         # 评论内容（不加引号）
         self.comment_label.setText(comment.content)
+
+        # 计数器显示：当前索引+1/总评论数
+        self.counter_label.setText(f"{self.current_index + 1}/{len(self.comments)}")
 
         # 用户名和点赞数在右下角显示
         self.meta_label.setText(f"{comment.user} · {comment.get_likes_str()}")
