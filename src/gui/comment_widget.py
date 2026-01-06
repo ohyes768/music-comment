@@ -192,7 +192,7 @@ class CommentWidget(QWidget):
     def _update_comment(self) -> None:
         """更新评论显示"""
         if not self.comments or self.current_index >= len(self.comments):
-            self.comment_label.setText("暂无评论")
+            self.comment_label.setText("ops,暂无热门评论")
             self.counter_label.setText("0/0")
             self.meta_label.setText("")
             if hasattr(self, 'likes_label'):

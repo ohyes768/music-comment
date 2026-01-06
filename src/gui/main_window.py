@@ -401,7 +401,10 @@ class TransparentWindow(QWidget):
         self._adjust_window_height()
 
     def _adjust_window_height(self) -> None:
-        """根据内容调整窗口高度"""
+        """根据内容调整窗口高度，保持窗口位置不变"""
+        # 保存当前窗口位置
+        current_pos = self.pos()
+
         # 强制布局更新
         self.background_container.layout().activate()
         self.comment_widget.layout().activate()
@@ -414,3 +417,6 @@ class TransparentWindow(QWidget):
 
         # 调整窗口大小
         self.resize(self.config.window_width, new_height)
+
+        # 恢复窗口位置，确保不会移动
+        self.move(current_pos)
