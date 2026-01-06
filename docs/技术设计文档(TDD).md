@@ -1,8 +1,8 @@
 # 网易云音乐评论桌面应用 - 技术设计文档（TDD）
 
-**文档版本**: v2.0
+**文档版本**: v3.0
 **创建日期**: 2024-12-30
-**最后更新**: 2025-01-02
+**最后更新**: 2025-01-06
 **文档状态**: 正式发布
 
 ---
@@ -20,7 +20,9 @@
 
 ## 1. 系统架构
 
-### 1.1 整体架构 (V2.0 更新)
+### 1.1 整体架构 (V3.0 更新)
+
+V3.0版本新增 **系统托盘功能** 和 **窗口高度自适应机制**。
 
 V2.0版本新增 **crypto模块**，用于实现评论接口加密算法。
 
@@ -281,24 +283,126 @@ class TransparentWindow(QWidget):
 
 **窗口属性**:
 ```python
-尺寸: 320 x 180
+尺寸: 宽度320px，高度100-600px（动态调整）
 无边框: FramelessWindowHint
 置顶: WindowStaysOnTopHint
 背景透明: WA_TranslucentBackground
-整体透明度: 0.85
+整体透明度: 60%（使用 alpha 通道）
 可拖动: 自实现鼠标事件
-右键菜单: QMenu
+系统托盘: QSystemTrayIcon
 ```
+
+**V3.0 新增功能**:
+- **系统托盘集成**: 使用 QSystemTrayIcon 实现托盘功能
+- **窗口高度自适应**: 基于 comment_updated 信号动态调整
+- **托盘图标**: 使用 QPainter 手绘红色音符图标
+- **托盘交互**: 双击显示/隐藏，右键菜单
 
 **右键菜单**:
 ```
 ┌─────────────┐
+│ 隐藏到托盘   │
 │ 退出        │
-│  暂停轮播    │
-│  恢复轮播    │
-│  设置...     │
 └─────────────┘
 ```
+
+**托盘菜单**:
+```
+┌─────────────┐
+│ 显示窗口     │
+│ 隐藏到托盘   │
+├─────────────┤
+│ 退出        │
+└─────────────┘
+```
+
+---
+
+#### 2.2.3.1 V3.0 系统托盘模块 (main_window.py)
+
+**职责**: 实现系统托盘功能，让应用最小化后不占任务栏
+
+**核心类**:
+```python
+def create_tray_icon() -> QIcon:
+    """创建系统托盘图标"""
+    # 使用 QPainter 手绘红色音符图标
+    size = 32
+    image = QImage(size, size, QImage.Format.Format_ARGB32)
+    painter = QPainter(image)
+    # 绘制音符形状...
+    pixmap = QPixmap.fromImage(image)
+    return QIcon(pixmap)
+
+class TransparentWindow(QWidget):
+    def _setup_tray(self) -> None:
+        """设置系统托盘"""
+        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon.setIcon(create_tray_icon())
+
+        # 托盘菜单
+        tray_menu = QMenu()
+        show_action = QAction("显示窗口", self)
+        hide_action = QAction("隐藏到托盘", self)
+        quit_action = QAction("退出", self)
+
+        # 信号连接
+        self.tray_icon.activated.connect(self._on_tray_activated)
+```
+
+**托盘功能**:
+- **图标显示**: 红色音符图标（♪）
+- **双击交互**: 双击托盘图标显示/隐藏窗口
+- **右键菜单**: 显示窗口、隐藏到托盘、退出
+- **提示文本**: "网易云音乐评论 - 摸鱼神器"
+- **自动隐藏**: 窗口最小化时自动隐藏到托盘
+
+#### 2.2.3.2 V3.0 窗口高度自适应机制
+
+**职责**: 根据评论内容动态调整窗口高度
+
+**实现原理**:
+1. **信号触发**: CommentWidget 发出 comment_updated 信号
+2. **布局更新**: 强制激活布局系统
+3. **高度计算**: 获取内容的 sizeHint().height()
+4. **窗口调整**: 调用 resize() 设置新尺寸
+
+**核心代码**:
+```python
+class CommentWidget(QWidget):
+    comment_updated = pyqtSignal()  # 评论更新信号
+
+    def _update_comment(self) -> None:
+        """更新评论显示"""
+        # 更新评论内容...
+        self.comment_updated.emit()  # 发出信号
+
+class TransparentWindow(QWidget):
+    def _adjust_window_height(self) -> None:
+        """根据内容调整窗口高度"""
+        # 1. 强制布局更新
+        self.background_container.layout().activate()
+        self.comment_widget.layout().activate()
+
+        # 2. 获取内容需要的实际高度
+        content_height = self.background_container.sizeHint().height()
+
+        # 3. 确保高度在合理范围内
+        new_height = max(100, min(content_height, 600))
+
+        # 4. 调整窗口大小
+        self.resize(self.config.window_width, new_height)
+```
+
+**高度范围**:
+- 最小高度: 100px（避免窗口过小）
+- 最大高度: 600px（避免过度拉伸）
+- 宽度固定: 320px
+
+**调整时机**:
+- 切换歌曲时
+- 评论轮播时
+- 任何评论内容更新时
 
 ---
 
