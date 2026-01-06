@@ -6,7 +6,7 @@
 
 import sys
 from PyQt6.QtWidgets import QApplication, QMessageBox
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, qInstallMessageHandler, QtMsgType
 
 from src.gui.main_window import TransparentWindow
 from src.core.monitor import NeteaseWindowMonitor
@@ -14,6 +14,33 @@ from src.core.netease_crawler import NeteaseMusicCrawler
 from src.utils.logger import get_logger, setup_logger
 
 logger = get_logger()
+
+
+def qt_message_handler(msg_type: QtMsgType, context, message: str):
+    """Qt 消息处理器
+
+    过滤掉 Qt 的警告信息，保持控制台输出干净
+
+    Args:
+        msg_type: 消息类型
+        context: 消息上下文
+        message: 消息内容
+    """
+    # 只处理警告和调试信息
+    if msg_type == QtMsgType.QtWarningMsg:
+        # 过滤掉 QWindowsWindow::setGeometry 的警告
+        if "QWindowsWindow::setGeometry" in message:
+            return
+        # 过滤掉 Unable to set geometry 的警告
+        if "Unable to set geometry" in message:
+            return
+    elif msg_type == QtMsgType.QtDebugMsg:
+        # 过滤掉所有调试信息
+        return
+
+    # 其他消息正常输出
+    # 使用默认的处理方式
+    pass
 
 
 class MusicCommentApp:
@@ -165,6 +192,9 @@ class MusicCommentApp:
 
 def main():
     """主函数"""
+    # 安装 Qt 消息处理器，过滤警告信息
+    qInstallMessageHandler(qt_message_handler)
+
     # 设置日志
     setup_logger()
 

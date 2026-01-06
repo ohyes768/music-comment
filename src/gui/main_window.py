@@ -4,15 +4,57 @@
 创建透明悬浮的主窗口，包含评论展示组件
 """
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QMenu, QMessageBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QMenu, QMessageBox, QSystemTrayIcon, QApplication
 from PyQt6.QtCore import Qt, QPoint, QSize, QEvent, QObject
-from PyQt6.QtGui import QCursor, QIcon, QPainter, QColor, QBrush
+from PyQt6.QtGui import QCursor, QIcon, QPainter, QColor, QBrush, QAction, QImage, QPixmap
 
 from src.config.settings import get_config
 from src.utils.logger import get_logger
 from src.gui.comment_widget import CommentWidget
 
 logger = get_logger()
+
+
+def create_tray_icon() -> QIcon:
+    """创建系统托盘图标
+
+    绘制一个简单的音符图标
+
+    Returns:
+        QIcon: 托盘图标
+    """
+    # 创建 32x32 的图像
+    size = 32
+    image = QImage(size, size, QImage.Format.Format_ARGB32)
+    image.fill(QColor(0, 0, 0, 0))  # 透明背景
+
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    # 绘制音符形状（八分音符）
+    # 符头（椭圆）
+    painter.setBrush(QBrush(QColor(230, 50, 50)))  # 红色
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.drawEllipse(8, 20, 10, 8)
+
+    # 符干（竖线）
+    painter.setBrush(QBrush(QColor(230, 50, 50)))
+    painter.drawRect(17, 4, 2, 16)
+
+    # 符尾（曲线）
+    from PyQt6.QtGui import QPainterPath
+    path = QPainterPath()
+    path.moveTo(19, 4)
+    path.quadTo(24, 8, 24, 14)
+    path.quadTo(24, 18, 19, 12)
+    painter.setBrush(QBrush(QColor(230, 50, 50)))
+    painter.drawPath(path)
+
+    painter.end()
+
+    # 从 QImage 创建 QPixmap，再创建 QIcon
+    pixmap = QPixmap.fromImage(image)
+    return QIcon(pixmap)
 
 
 class BackgroundContainer(QWidget):
@@ -57,8 +99,12 @@ class TransparentWindow(QWidget):
         # 保存窗口状态（用于最小化还原）
         self._saved_geometry = None
 
+        # 系统托盘
+        self.tray_icon: QSystemTrayIcon = None
+
         self._setup_window()
         self._setup_ui()
+        self._setup_tray()  # 设置系统托盘
 
     def _setup_window(self) -> None:
         """配置窗口属性"""
@@ -183,6 +229,69 @@ class TransparentWindow(QWidget):
         for child in widget.findChildren(QWidget):
             child.installEventFilter(self._drag_filter)
 
+    def _setup_tray(self) -> None:
+        """设置系统托盘"""
+        # 创建托盘图标
+        icon = create_tray_icon()
+        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon.setIcon(icon)
+
+        # 创建托盘菜单
+        tray_menu = QMenu()
+
+        # 显示/隐藏窗口
+        show_action = QAction("显示窗口", self)
+        show_action.triggered.connect(self._show_window)
+        tray_menu.addAction(show_action)
+
+        hide_action = QAction("隐藏到托盘", self)
+        hide_action.triggered.connect(self._hide_to_tray)
+        tray_menu.addAction(hide_action)
+
+        tray_menu.addSeparator()
+
+        # 退出
+        quit_action = QAction("退出", self)
+        quit_action.triggered.connect(QApplication.instance().quit)
+        tray_menu.addAction(quit_action)
+
+        # 设置托盘菜单
+        self.tray_icon.setContextMenu(tray_menu)
+
+        # 双击托盘图标显示窗口
+        self.tray_icon.activated.connect(self._on_tray_activated)
+
+        # 显示托盘图标
+        self.tray_icon.show()
+
+        # 设置提示文本
+        self.tray_icon.setToolTip("网易云音乐评论 - 摸鱼神器")
+
+        logger.info("系统托盘初始化完成")
+
+    def _show_window(self) -> None:
+        """显示窗口"""
+        self.showNormal()
+        self.activateWindow()
+        self.raise_()
+
+    def _hide_to_tray(self) -> None:
+        """隐藏到托盘"""
+        self.hide()
+
+    def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        """托盘图标激活事件
+
+        Args:
+            reason: 激活原因
+        """
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            # 双击托盘图标显示窗口
+            if self.isVisible():
+                self.hide()
+            else:
+                self._show_window()
+
     def mousePressEvent(self, event) -> None:
         """鼠标按下事件
 
@@ -224,16 +333,16 @@ class TransparentWindow(QWidget):
     def mouseDoubleClickEvent(self, event) -> None:
         """鼠标双击事件
 
-        双击最小化/还原窗口
+        双击隐藏到托盘/显示窗口
 
         Args:
             event: 鼠标事件
         """
         if event.button() == Qt.MouseButton.LeftButton:
-            if self.isMinimized():
-                self.showNormal()
+            if self.isVisible():
+                self._hide_to_tray()
             else:
-                self.showMinimized()
+                self._show_window()
             event.accept()
 
     def contextMenuEvent(self, event) -> None:
@@ -246,13 +355,13 @@ class TransparentWindow(QWidget):
         """
         menu = QMenu(self)
 
-        # 最小化/还原
-        if self.isMinimized():
-            restore_action = menu.addAction("还原")
-            restore_action.triggered.connect(self.showNormal)
+        # 最小化/还原（右键菜单）
+        if self.isVisible():
+            minimize_action = menu.addAction("隐藏到托盘")
+            minimize_action.triggered.connect(self._hide_to_tray)
         else:
-            minimize_action = menu.addAction("最小化")
-            minimize_action.triggered.connect(self.showMinimized)
+            show_action = menu.addAction("显示窗口")
+            show_action.triggered.connect(self._show_window)
 
         menu.addSeparator()
 
@@ -273,14 +382,9 @@ class TransparentWindow(QWidget):
         """
         if event.type() == event.Type.WindowStateChange:
             if self.isMinimized():
-                # 最小化时保存窗口位置和大小
-                self._saved_geometry = self.geometry()
-                logger.info("窗口已最小化")
-            else:
-                # 还原时恢复窗口位置和大小
-                if self._saved_geometry:
-                    self.setGeometry(self._saved_geometry)
-                    logger.info("窗口已还原")
+                # 最小化时隐藏到托盘（不占任务栏）
+                self.hide()
+                logger.debug("窗口已隐藏到托盘")
 
         super().changeEvent(event)
 

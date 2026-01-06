@@ -148,7 +148,8 @@ class NeteaseWindowMonitor:
         except Exception as e:
             # 即使 EnumWindows 返回时抛出其他错误，如果已经找到窗口，也继续使用
             if windows:
-                logger.warning(f"EnumWindows 返回时出现错误，但已找到窗口，继续使用: {e}")
+                # 降级为 DEBUG，因为这类错误很常见且不影响功能
+                logger.debug(f"EnumWindows 返回时出现错误，但已找到窗口，继续使用: {e}")
             else:
                 logger.error(f"枚举窗口时发生未知错误: {e}")
                 logger.error(f"错误类型: {type(e).__name__}")
