@@ -1,8 +1,8 @@
 # 网易云音乐评论桌面应用 - 技术设计文档（TDD）
 
-**文档版本**: v3.0
+**文档版本**: v3.1
 **创建日期**: 2024-12-30
-**最后更新**: 2025-01-06
+**最后更新**: 2025-01-19
 **文档状态**: 正式发布
 
 ---
@@ -297,6 +297,7 @@ class TransparentWindow(QWidget):
 - **窗口高度自适应**: 基于 comment_updated 信号动态调整
 - **托盘图标**: 使用 QPainter 手绘红色音符图标
 - **托盘交互**: 双击显示/隐藏，右键菜单
+- **全局快捷键**: 使用 keyboard 库实现 Ctrl+Alt+; 快速切换窗口
 
 **右键菜单**:
 ```
@@ -403,6 +404,70 @@ class TransparentWindow(QWidget):
 - 切换歌曲时
 - 评论轮播时
 - 任何评论内容更新时
+
+#### 2.2.3.3 V3.0 全局快捷键功能
+
+**职责**: 实现全局快捷键，在任何时候都能快速切换窗口显示/隐藏
+
+**实现原理**:
+1. **库选择**: 使用 keyboard 库（支持全局快捷键）
+2. **快捷键注册**: Ctrl+Alt+; 组合键
+3. **线程处理**: keyboard 回调在独立线程，使用 QTimer 调度到主线程
+4. **生命周期管理**: 应用退出时自动注销快捷键
+
+**核心代码**:
+```python
+import keyboard
+from PyQt6.QtCore import QTimer
+
+class TransparentWindow(QWidget):
+    def _setup_global_hotkey(self) -> None:
+        """设置全局快捷键"""
+        try:
+            # 注册 Ctrl+Alt+; 快捷键
+            keyboard.add_hotkey('ctrl+alt+;', self._toggle_window)
+            logger.info("全局快捷键已注册: Ctrl+Alt+;")
+        except Exception as e:
+            logger.error(f"注册全局快捷键失败: {e}")
+
+    def _toggle_window(self) -> None:
+        """切换窗口（快捷键回调，在独立线程）"""
+        # 使用 QTimer 将操作调度到主线程
+        QTimer.singleShot(0, self._toggle_window_impl)
+
+    def _toggle_window_impl(self) -> None:
+        """实际切换实现（在主线程执行）"""
+        if self.isVisible():
+            self.hide()
+            logger.debug("快捷键触发: 隐藏窗口")
+        else:
+            self.showNormal()
+            self.activateWindow()
+            self.raise_()
+            logger.debug("快捷键触发: 显示窗口")
+
+    def closeEvent(self, event) -> None:
+        """窗口关闭事件"""
+        try:
+            # 清理快捷键注册
+            keyboard.unhook_all_hotkeys()
+            logger.info("全局快捷键已注销")
+        except Exception as e:
+            logger.error(f"注销快捷键失败: {e}")
+        event.accept()
+```
+
+**技术要点**:
+- **全局性**: keyboard 库支持全局快捷键，应用不在焦点时也能工作
+- **线程安全**: PyQt UI 操作必须在主线程，使用 QTimer.singleShot(0, ...) 调度
+- **资源清理**: 应用退出时调用 keyboard.unhook_all_hotkeys() 清理
+
+**快捷键组合**: Ctrl+Alt+;
+
+**适用场景**:
+- 摸鱼模式：快速隐藏窗口
+- 老板来了：一键隐藏
+- 老板走了：一键恢复
 
 ---
 

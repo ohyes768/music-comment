@@ -5,8 +5,9 @@
 """
 
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QMenu, QMessageBox, QSystemTrayIcon, QApplication
-from PyQt6.QtCore import Qt, QPoint, QSize, QEvent, QObject
+from PyQt6.QtCore import Qt, QPoint, QSize, QEvent, QObject, QTimer
 from PyQt6.QtGui import QCursor, QIcon, QPainter, QColor, QBrush, QAction, QImage, QPixmap
+import keyboard
 
 from src.config.settings import get_config
 from src.utils.logger import get_logger
@@ -105,6 +106,7 @@ class TransparentWindow(QWidget):
         self._setup_window()
         self._setup_ui()
         self._setup_tray()  # 设置系统托盘
+        self._setup_global_hotkey()  # 设置全局快捷键
 
     def _setup_window(self) -> None:
         """配置窗口属性"""
@@ -269,6 +271,15 @@ class TransparentWindow(QWidget):
 
         logger.info("系统托盘初始化完成")
 
+    def _setup_global_hotkey(self) -> None:
+        """设置全局快捷键"""
+        try:
+            # 注册 Ctrl+Alt+; 快捷键来切换窗口显示/隐藏
+            keyboard.add_hotkey('ctrl+alt+;', self._toggle_window)
+            logger.info("全局快捷键已注册: Ctrl+Alt+; (切换窗口显示/隐藏)")
+        except Exception as e:
+            logger.error(f"注册全局快捷键失败: {e}")
+
     def _show_window(self) -> None:
         """显示窗口"""
         self.showNormal()
@@ -278,6 +289,20 @@ class TransparentWindow(QWidget):
     def _hide_to_tray(self) -> None:
         """隐藏到托盘"""
         self.hide()
+
+    def _toggle_window(self) -> None:
+        """切换窗口显示/隐藏（全局快捷键回调）"""
+        # 使用 QTimer 将操作调度到主线程（keyboard 回调在独立线程）
+        QTimer.singleShot(0, self._toggle_window_impl)
+
+    def _toggle_window_impl(self) -> None:
+        """切换窗口显示/隐藏的实际实现（在主线程执行）"""
+        if self.isVisible():
+            self._hide_to_tray()
+            logger.debug("快捷键触发: 隐藏窗口")
+        else:
+            self._show_window()
+            logger.debug("快捷键触发: 显示窗口")
 
     def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         """托盘图标激活事件
@@ -420,3 +445,21 @@ class TransparentWindow(QWidget):
 
         # 恢复窗口位置，确保不会移动
         self.move(current_pos)
+
+    def closeEvent(self, event) -> None:
+        """窗口关闭事件
+
+        清理快捷键注册
+
+        Args:
+            event: 关闭事件
+        """
+        try:
+            # 移除所有快捷键
+            keyboard.unhook_all_hotkeys()
+            logger.info("全局快捷键已注销")
+        except Exception as e:
+            logger.error(f"注销快捷键失败: {e}")
+
+        # 接受关闭事件
+        event.accept()
